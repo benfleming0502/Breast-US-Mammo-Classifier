@@ -53,8 +53,8 @@ def main():
     pretrained_transforms = pretrained_weights.transforms()
     print(pretrained_transforms)
 
-    training_images = "./train_mammograms"
-    test_images = "./test_mammograms"
+    training_images = "./training_ultrasounds"
+    test_images = "./test_ultrasounds"
     training_loader, test_loader, class_names = get_dataloader(train_file=training_images, test_file=test_images, transform=pretrained_transforms, batch_size=4)
 
     optimiser = torch.optim.Adam(params=vit_model.parameters(), lr=0.001)
