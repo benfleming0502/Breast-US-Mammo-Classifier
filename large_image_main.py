@@ -7,17 +7,21 @@ from torchvision import transforms
 from dataloading import get_dataloader
 from training import train
 
+def resize_vit(model, size):
+    if image_size[0] % patch_size or image_size[1] % patch_size:
+        print("image_size not compatible with patch_size")
+        return None
+    # Resizing the model to the new resolution, to replace the default 224x224
+    patch_size = model.patch_embed.patch_size # Should be 16x16
+    new_size = (image_size[0] // patch_size, image_size[1])
+
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using {device} device")
     print(f"{torch.version.cuda}")
 
 
-    pretrained_weights = torchvision.models.ViT_B_16_Weights.DEFAULT
-    vit_model = torchvision.models.vit_b_16(weights=pretrained_weights).to(device)
-
-    for parameter in vit_model.parameters():
-        parameter.requires_grad = False
+    vit_model = torchvision.models.vit_b_16().to(device)
 
     classes = ["normal", "benign", "malignant"]
 
@@ -26,17 +30,13 @@ def main():
     if device == "cuda":
         torch.cuda.manual_seed(seed)
 
-    vit_model.heads = nn.Linear(in_features=16**2 * 3, out_features=len(classes))
+    vit_model.heads = nn.Linear(in_features=64*48*3, out_features=len(classes))
 
     summ = summary(vit_model,
-            input_size=(4, 3, 224, 224),
+            input_size=(4, 3, 1024, 768),
             col_names=["input_size", "output_size", "num_params", "trainable"],
             col_width=20,
             row_settings=["var_names"])
-
-
-    pretrained_transforms = pretrained_weights.transforms()
-    print(pretrained_transforms)
 
     training_images = "./training_ultrasounds"
     test_images = "./test_ultrasounds"
