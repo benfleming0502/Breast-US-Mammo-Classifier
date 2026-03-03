@@ -11,13 +11,17 @@ def get_dataloader(train_file, test_file, transform, batch_size):
     training_loader = DataLoader(training_data, 
                                  batch_size=batch_size, 
                                  shuffle=True, 
-                                 num_workers=1,
+                                 num_workers=8,
+                                 persistent_workers=True,
+                                 prefetch_factor=2,
                                  pin_memory=True)
     
     test_loader = DataLoader(test_data, 
                              batch_size=batch_size, 
                              shuffle=False, 
-                             num_workers=1,
+                             num_workers=8,
+                             persistent_workers=True,
+                             prefetch_factor=2,
                              pin_memory=True)
     
     return training_loader, test_loader, class_names

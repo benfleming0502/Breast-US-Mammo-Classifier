@@ -61,7 +61,7 @@ def get_split(dataset_location,
     print(f"Finished copying {i}/{test_size} samples")
             
 
-def reset_workspace(wrk_dir, test, training):
+def reset_workspace(test, training):
 
     if os.path.isdir(test):
         print("Deleting previous test data")
@@ -84,14 +84,18 @@ def reset_workspace(wrk_dir, test, training):
     os.makedirs(training_malignant)
     os.makedirs(training_normal)
 
-if __name__ == "__main__":
+def main(reset=True,train_split=0.7):
     wrk_dir = os.getcwd()
     test = wrk_dir + "\\test_ultrasounds\\"
     training = wrk_dir + "\\training_ultrasounds\\"
     dataset = wrk_dir + "\\DCL_USG\\"
 
-    reset_workspace(wrk_dir, test, training)
+    if reset:
+        reset_workspace(test, training)
 
-    get_split(dataset, "Benign", "benign", 0.7, training, test)
-    get_split(dataset, "Malignant", "malignant", 0.7, training, test)
-    get_split(dataset, "Normal", "normal", 0.7, training, test)
+    get_split(dataset, "Benign", "benign", train_split, training, test)
+    get_split(dataset, "Malignant", "malignant", train_split, training, test)
+    get_split(dataset, "Normal", "normal", train_split, training, test)
+
+if __name__ == "__main__":
+    main()

@@ -3,20 +3,7 @@ import shutil
 import random
 
 def get_last_segment(file_dir):
-    try:
-        id = str.split(str.split(file_dir, "\\")[-1], " ")[0]
-    except:
-        id = str.split(str.split(file_dir, "\\")[-1], "_")[0]
-    last_segment = id
-    if id == "Mammogram":
-        print(file_dir)
-    if id == "Ultrasound":
-        try:
-            id = str.split(str.split(file_dir, "\\")[-2], " ")[1]
-        except:
-            id = str.split(str.split(file_dir, "\\")[-2], "_")[1]
-        last_segment = "SPECTRA" + id
-
+    last_segment = str.split(file_dir, "\\")[-1]
     return last_segment
 
 
@@ -35,7 +22,7 @@ def get_split(dataset_location,
         # adaptation opportunities when combining multiple images from the same
         # patient.
         for file in files:
-            if file[0] != "A" or "Normal" in root:
+            if not "THUM" in file:
                 patient_ID = get_last_segment(root)
                 images.setdefault(patient_ID, [])
                 images[patient_ID].append(root + "\\" + file)
@@ -53,6 +40,7 @@ def get_split(dataset_location,
         for image in images[patient_ID]:
             shutil.copyfile(image, 
                        training_output
+                       + "YORK_"
                        + patient_ID 
                        + "_"
                        + get_last_segment(image))
@@ -69,13 +57,14 @@ def get_split(dataset_location,
         for image in images[patient_ID]:
             shutil.copyfile(image, 
                        test_output
+                       + "YORK_"
                        + patient_ID 
                        + "_"
                        + get_last_segment(image))
     print(f"Finished copying {i}/{test_size} samples")
             
 
-def reset_workspace(wrk_dir, test, training):
+def reset_workspace(test, training):
 
     if os.path.isdir(test):
         print("Deleting previous test data")
@@ -102,14 +91,14 @@ def main(reset=True,train_split=0.7):
     wrk_dir = os.getcwd()
     test = wrk_dir + "\\test_ultrasounds\\"
     training = wrk_dir + "\\training_ultrasounds\\"
-    dataset = wrk_dir + "\\Spectra_US\\"
+    dataset = wrk_dir + "\\York_US\\"
 
     if reset:
         reset_workspace(test, training)
 
-    get_split(dataset, "Benign", "benign", train_split, training, test)
-    get_split(dataset, "Malignant", "malignant", train_split, training, test)
-    get_split(dataset, "Normal", "normal", train_split, training, test)
+    get_split(dataset, "benign", "benign", train_split, training, test)
+    get_split(dataset, "balignant", "malignant", train_split, training, test)
+    get_split(dataset, "bormal", "normal", train_split, training, test)
 
 if __name__ == "__main__":
     main()

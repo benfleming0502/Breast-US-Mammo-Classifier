@@ -1,80 +1,82 @@
 import torch
 
-from tqdm.auto import tqdm
-
 def train_step(model, dataloader, loss_function, optimiser, device):
     model.train()
-    loss, accuracy = 0,0
+    total_loss = 0
+    total_correct = 0
+    total_samples = 0
 
-    for batch, (X, y) in enumerate(dataloader):
+    for X, y in dataloader:
         X, y = X.to(device), y.to(device)
 
         predictions = model(X)
-        batch_loss = loss_function(predictions, y)
-        loss += batch_loss.item() 
+        loss = loss_function(predictions, y)
 
         optimiser.zero_grad()
-        batch_loss.backward()
+        loss.backward()
         optimiser.step()
 
-        y_pred_class = torch.argmax(torch.softmax(predictions, dim=1), dim=1)
-        accuracy += (y_pred_class == y).sum().item()/len(predictions)
+        total_loss += loss.item() * X.size(0)
+        preds = predictions.argmax(dim=1)
+        total_correct += (preds == y).sum().item()
+        total_samples += X.size(0)
 
-    loss = loss / len(dataloader)
-    accuracy = accuracy / len(dataloader)
-    return loss, accuracy
+    return total_loss / total_samples, total_correct / total_samples
+
 
 def test_step(model, dataloader, loss_function, device):
-    model.eval() 
-    loss, accuracy = 0, 0
+    model.eval()
+    total_loss = 0
+    total_correct = 0
+    total_samples = 0
+
     with torch.no_grad():
-        for batch, (X, y) in enumerate(dataloader):
+        for X, y in dataloader:
             X, y = X.to(device), y.to(device)
 
             predictions = model(X)
+            loss = loss_function(predictions, y)
 
-            batch_loss = loss_function(predictions, y)
-            loss += batch_loss.item()
+            total_loss += loss.item() * X.size(0)
+            preds = predictions.argmax(dim=1)
+            total_correct += (preds == y).sum().item()
+            total_samples += X.size(0)
 
-            labels = predictions.argmax(dim=1)
-            accuracy += ((labels == y).sum().item()/len(labels))
+    return total_loss / total_samples, total_correct / total_samples
 
-    loss = loss / len(dataloader)
-    accuracy = accuracy / len(dataloader)
-    return loss, accuracy
 
-def train(model, 
-          training_loader, 
-          test_loader, 
-          optimiser, 
-          loss_function, 
-          epochs, 
+def train(model,
+          training_loader,
+          test_loader,
+          optimiser,
+          loss_function,
+          epochs,
           device):
+
     model.to(device)
-    stats = {"training_loss": [],
-               "training_accuracy": [],
-               "test_loss": [],
-               "test_accuracy": []
+
+    stats = {
+        "training_loss": [],
+        "training_accuracy": [],
+        "test_loss": [],
+        "test_accuracy": []
     }
 
-    for epoch in tqdm(range(epochs)):
-        training_loss, training_accuracy = train_step(model=model,
-                                          dataloader=training_loader,
-                                          loss_function=loss_function,
-                                          optimiser=optimiser,
-                                          device=device)
-        
-        test_loss, test_accuracy = test_step(model=model,
-          dataloader=test_loader,
-          loss_function=loss_function,
-          device=device)
+    for epoch in range(epochs):
+        training_loss, training_accuracy = train_step(
+            model, training_loader, loss_function, optimiser, device
+        )
+
+        test_loss, test_accuracy = test_step(
+            model, test_loader, loss_function, device
+        )
 
         print(
-          f"Epoch: {epoch+1} | "
-          f"training_loss: {training_loss:.4f} | "
-          f"training_accuracy: {training_accuracy:.4f} | "
-          f"test_loss: {test_loss:.4f} | "
-          f"test_accuracy: {test_accuracy:.4f}"
+            f"Epoch: {epoch+1} | "
+            f"training_loss: {training_loss:.4f} | "
+            f"training_accuracy: {training_accuracy:.4f} | "
+            f"test_loss: {test_loss:.4f} | "
+            f"test_accuracy: {test_accuracy:.4f}"
         )
 
         stats["training_loss"].append(training_loss)

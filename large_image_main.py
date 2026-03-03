@@ -8,12 +8,18 @@ from dataloading import get_dataloader
 from training import train
 
 def resize_vit(model, size):
-    if image_size[0] % patch_size or image_size[1] % patch_size:
-        print("image_size not compatible with patch_size")
-        return None
     # Resizing the model to the new resolution, to replace the default 224x224
     patch_size = model.patch_embed.patch_size # Should be 16x16
-    new_size = (image_size[0] // patch_size, image_size[1])
+    if size[0] % patch_size or size[1] % patch_size:
+        print("image_size not compatible with patch_size")
+        return None
+    new_size = (size[0] // patch_size, size[1] // patch_size)
+
+    embeddings = model.encoder.pos_embedding
+    class_token = embeddings[:,:1]
+    position = embeddings[:,1:]
+
+    
 
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
