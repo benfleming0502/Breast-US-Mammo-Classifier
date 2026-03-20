@@ -18,6 +18,7 @@
 # COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+import torchvision.models as models
 
 import os
 from argparse import ArgumentParser
@@ -38,7 +39,7 @@ parser = ArgumentParser(description='NVAITC Toolkit Classification using TorchVi
 
 parser.add_argument('--log-dir', default='./logs',
                     help='tensorboard log directory')
-parser.add_argument('--epochs', type=int, default=10,
+parser.add_argument('--epochs', type=int, default=50,
                     help='number of epochs to train')
 parser.add_argument('--base-lr', type=float, default=0.0125,
                     help='learning rate for a single GPU')
@@ -119,7 +120,7 @@ def run(args):
     traindir = "training_ultrasounds"
     valdir = "test_ultrasounds"
 
-    network = ToyModel()
+    network = models.resnet50(num_classes=3)
 
     if args.global_rank == 0:
         print("= Start training =")
@@ -183,6 +184,7 @@ def run(args):
     val_dataset = datasets.ImageFolder(valdir, transforms.Compose([
         transforms.Resize(val_size),
         transforms.CenterCrop(crop_size),
+        transforms.RandomRotation(30),
         transforms.ToTensor(),
     ]))
 
@@ -241,7 +243,6 @@ def worker(local_rank, args):
     assert torch.backends.cudnn.enabled, "Amp requires cudnn backend to be enabled."
 
     run(args)
-
 
 if __name__ == '__main__':
     torch.multiprocessing.spawn(worker, nprocs=arguments.num_gpus, args=(arguments,))

@@ -71,13 +71,14 @@ class TVTrainer:
 
             # prefetcher = self.data_prefetcher(self.train_loader)
             # input, target = prefetcher.next()
-            loader = iter(self.train_loader)
-            input, target = next(loader)
-            input = input.float().to(self.args.device)
-            target = target.to(self.args.device)
+            # loader = iter(self.train_loader)
+            # input, target = next(loader)
+            # input = input.float().to(self.args.device)
+            # target = target.to(self.args.device)
             i = 0
-            while input is not None:
-                i += 1
+            for i, (input, target) in enumerate(self.train_loader):
+                input = input.float().to(self.args.device)
+                target = target.to(self.args.device)
                 if self.args.prof >= 0 and i == self.args.prof:
                     print("Profiling begun at iteration {}".format(i))
                     torch.cuda.cudart().cudaProfilerStart()
@@ -126,20 +127,20 @@ class TVTrainer:
                     # iteration, since they incur an allreduce and some host<->device syncs.
 
                     # Measure accuracy
-                    prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
+                    prec1, prec3 = accuracy(output.data, target, topk=(1, 3))
 
                     # Average loss and accuracy across processes for logging
                     if self.args.distributed:
                         reduced_loss = reduce_tensor(loss.data)
                         prec1 = reduce_tensor(prec1)
-                        prec5 = reduce_tensor(prec5)
+                        prec3 = reduce_tensor(prec3)
                     else:
                         reduced_loss = loss.data
 
                     # to_python_float incurs a host<->device sync
                     losses.update(to_python_float(reduced_loss), input.size(0))
                     top1.update(to_python_float(prec1), input.size(0))
-                    top5.update(to_python_float(prec5), input.size(0))
+                    top5.update(to_python_float(prec3), input.size(0))
 
                     torch.cuda.synchronize()
                     batch_time.update((time.time() - end) / self.args.print_freq)
@@ -165,10 +166,7 @@ class TVTrainer:
 
                 if self.args.prof >= 0: torch.cuda.nvtx.range_push("prefetcher.next()")
                 # input, target = prefetcher.next()
-                input, target = next(loader)
-                input = input.float()
-                input = input.to(self.args.device)
-                target = target.to(self.args.device)
+
                 if self.args.prof >= 0: torch.cuda.nvtx.range_pop()
 
                 # Pop range "Body of iteration {}".format(i)
@@ -184,7 +182,7 @@ class TVTrainer:
             total_time.update(avg_train_time)
 
             # evaluate on validation set
-            [prec1, prec5] = self.validate(epoch)
+            [prec1, prec3] = self.validate(epoch)
 
             # remember best prec@1 and save checkpoint
             if self.args.local_rank == 0:
@@ -203,7 +201,7 @@ class TVTrainer:
                            + '##Top-5 {1}\n'
                            + '##Perf  {2}').format(
                         prec1,
-                        prec5,
+                        prec3,
                         int(self.args.total_batch_size / total_time.avg)))
 
     def adjust_learning_rate(self, epoch, step, len_epoch):
@@ -248,18 +246,18 @@ class TVTrainer:
                 loss = self.criterion(output, target)
 
             # measure accuracy and record loss
-            prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
+            prec1, prec3 = accuracy(output.data, target, topk=(1, 3))
 
             if self.args.distributed:
                 reduced_loss = reduce_tensor(loss.data)
                 prec1 = reduce_tensor(prec1)
-                prec5 = reduce_tensor(prec5)
+                prec3 = reduce_tensor(prec3)
             else:
                 reduced_loss = loss.data
 
             losses.update(to_python_float(reduced_loss), input.size(0))
             top1.update(to_python_float(prec1), input.size(0))
-            top5.update(to_python_float(prec5), input.size(0))
+            top5.update(to_python_float(prec3), input.size(0))
 
             # measure elapsed time
             batch_time.update(time.time() - end)
