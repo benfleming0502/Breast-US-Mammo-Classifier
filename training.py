@@ -19,6 +19,7 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+import os
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss
 import numpy as np
 import torch
@@ -59,11 +60,13 @@ class TVTrainer:
         for epoch in range(self.args.start_epoch, self.args.epochs):
             if self.args.distributed:
                 self.train_sampler.set_epoch(epoch)
+            if self.args.global_rank == 0 and epoch % 1 == 0:
+                os.system("nvidia-smi")
 
             batch_time = AverageMeter()
             losses = AverageMeter()
             top1 = AverageMeter()
-            top5 = AverageMeter()
+            top3 = AverageMeter()
 
             # switch to train mode
             self.model.train()
@@ -140,7 +143,7 @@ class TVTrainer:
                     # to_python_float incurs a host<->device sync
                     losses.update(to_python_float(reduced_loss), input.size(0))
                     top1.update(to_python_float(prec1), input.size(0))
-                    top5.update(to_python_float(prec3), input.size(0))
+                    top3.update(to_python_float(prec3), input.size(0))
 
                     torch.cuda.synchronize()
                     batch_time.update((time.time() - end) / self.args.print_freq)
@@ -152,17 +155,17 @@ class TVTrainer:
                                + 'Speed {3:.3f} ({4:.3f})\t'
                                + 'Loss {loss.val:.10f} ({loss.avg:.4f})\t'
                                + 'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                               + 'Prec@5 {top5.val:.3f} ({top5.avg:.3f})').format(
+                               + 'Prec@3 {top3.val:.3f} ({top3.avg:.3f})').format(
                             epoch, i, len(self.train_loader),
                             self.args.world_size * self.args.batch_size / batch_time.val,
                             self.args.world_size * self.args.batch_size / batch_time.avg,
                             batch_time=batch_time,
-                            loss=losses, top1=top1, top5=top5))
+                            loss=losses, top1=top1, top3=top3))
 
                         if self.log_writer:
                             self.log_writer.add_scalar('train/loss', losses.avg, epoch)
                             self.log_writer.add_scalar('train/accuracy1', top1.avg, epoch)
-                            self.log_writer.add_scalar('train/accuracy5', top5.avg, epoch)
+                            self.log_writer.add_scalar('train/accuracy3', top3.avg, epoch)
 
                 if self.args.prof >= 0: torch.cuda.nvtx.range_push("prefetcher.next()")
                 # input, target = prefetcher.next()
@@ -198,7 +201,7 @@ class TVTrainer:
 
                 if epoch == self.args.epochs - 1:
                     print(('##Top-1 {0}\n'
-                           + '##Top-5 {1}\n'
+                           + '##Top-3 {1}\n'
                            + '##Perf  {2}').format(
                         prec1,
                         prec3,
@@ -227,7 +230,7 @@ class TVTrainer:
         batch_time = AverageMeter()
         losses = AverageMeter()
         top1 = AverageMeter()
-        top5 = AverageMeter()
+        top3 = AverageMeter()
 
         # switch to evaluate mode
         self.model.eval()
@@ -257,7 +260,7 @@ class TVTrainer:
 
             losses.update(to_python_float(reduced_loss), input.size(0))
             top1.update(to_python_float(prec1), input.size(0))
-            top5.update(to_python_float(prec3), input.size(0))
+            top3.update(to_python_float(prec3), input.size(0))
 
             # measure elapsed time
             batch_time.update(time.time() - end)
@@ -269,24 +272,24 @@ class TVTrainer:
                        + 'Speed {2:.3f} ({3:.3f})\t'
                        + 'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                        + 'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                       + 'Prec@5 {top5.val:.3f} ({top5.avg:.3f})').format(
+                       + 'Prec@3 {top3.val:.3f} ({top3.avg:.3f})').format(
                     i, len(self.val_loader),
                     self.args.world_size * self.args.batch_size / batch_time.val,
                     self.args.world_size * self.args.batch_size / batch_time.avg,
                     batch_time=batch_time, loss=losses,
-                    top1=top1, top5=top5))
+                    top1=top1, top3=top3))
 
                 if self.log_writer:
                     self.log_writer.add_scalar('val/loss', losses.avg, epoch)
                     self.log_writer.add_scalar('val/accuracy1', top1.avg, epoch)
-                    self.log_writer.add_scalar('val/accuracy5', top5.avg, epoch)
+                    self.log_writer.add_scalar('val/accuracy3', top3.avg, epoch)
 
             input, target = prefetcher.next()
 
-        print(' * Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f}'
-              .format(top1=top1, top5=top5))
+        print(' * Prec@1 {top1.avg:.3f} Prec@3 {top3.avg:.3f}'
+              .format(top1=top1, top3=top3))
 
-        return [top1.avg, top5.avg]
+        return [top1.avg, top3.avg]
 
     class data_prefetcher():
         def __init__(self, loader):
