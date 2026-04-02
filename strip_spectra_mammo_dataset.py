@@ -1,9 +1,24 @@
 import os
 import shutil
 import random
+from utils import remove_bad_files
 
 def get_last_segment(file_dir):
-    last_segment = str.split(file_dir, "\\")[-1]
+    try:
+        id = str.split(str.split(file_dir, "\\")[-1], " ")[0]
+    except:
+        id = str.split(str.split(file_dir, "\\")[-1], "_")[0]
+    last_segment = id
+    if id == "Ultrasound" or id == "Ultrasouound":
+        print(file_dir)
+        return None
+    if id.lower() == "mammogram" or id.lower() == "mammogram]":
+        try:
+            id = str.split(str.split(file_dir, "\\")[-2], " ")[1]
+        except:
+            id = str.split(str.split(file_dir, "\\")[-2], "_")[1]
+        last_segment = "SPECTRA_" + id
+
     return last_segment
 
 
@@ -22,11 +37,12 @@ def get_split(dataset_location,
         # adaptation opportunities when combining multiple images from the same
         # patient.
         for file in files:
-            if not "THUM" in file:
+            if file[0] != "A" or "Normal" in root:
                 patient_ID = get_last_segment(root)
-                images.setdefault(patient_ID, [])
-                images[patient_ID].append(root + "\\" + file)
-    
+                if not patient_ID is None:
+                    images.setdefault(patient_ID, [])
+                    images[patient_ID].append(root + "\\" + file)
+
     # Copy images from source to the training samples of the class provided.
     i = 0
     image_keys = list(images.keys())
@@ -38,12 +54,13 @@ def get_split(dataset_location,
         if progress_notice and i % 10 == 0:
             print(f"Copying patient {i}/{training_size}")
         for image in images[patient_ID]:
-            shutil.copyfile(image, 
-                       training_output
-                       + "YORK_"
-                       + patient_ID 
-                       + "_"
-                       + get_last_segment(image))
+            ls = get_last_segment(image)
+            if not ls is None:
+                shutil.copyfile(image,
+                           training_output
+                           + patient_ID
+                           + "_"
+                           + ls)
     print(f"Finished copying {i}/{training_size} samples")
     # Copy images from source to the test sample location.
     test_size = len(images)-training_size
@@ -55,12 +72,13 @@ def get_split(dataset_location,
         if progress_notice and i % 10 == 0:
             print(f"Copying patient {i}/{test_size}")
         for image in images[patient_ID]:
-            shutil.copyfile(image, 
-                       test_output
-                       + "YORK_"
-                       + patient_ID 
-                       + "_"
-                       + get_last_segment(image))
+            ls = get_last_segment(image)
+            if not ls is None:
+                shutil.copyfile(image,
+                           test_output
+                           + patient_ID
+                           + "_"
+                           + ls)
     print(f"Finished copying {i}/{test_size} samples")
             
 
@@ -89,16 +107,19 @@ def reset_workspace(test, training):
 
 def main(reset=True,train_split=0.7):
     wrk_dir = os.getcwd()
-    test = wrk_dir + "\\test_ultrasounds\\"
-    training = wrk_dir + "\\training_ultrasounds\\"
-    dataset = wrk_dir + "\\York_US\\"
+    test = wrk_dir + "\\test_mammograms\\"
+    training = wrk_dir + "\\training_mammograms\\"
+    dataset = wrk_dir + "\\Spectra_Mammos\\"
 
     if reset:
         reset_workspace(test, training)
 
-    get_split(dataset, "benign", "benign", train_split, training, test)
-    get_split(dataset, "balignant", "malignant", train_split, training, test)
-    get_split(dataset, "bormal", "normal", train_split, training, test)
+    get_split(dataset, "Benign", "benign", train_split, training, test)
+    get_split(dataset, "Malignant", "malignant", train_split, training, test)
+    get_split(dataset, "Normal", "normal", train_split, training, test)
+
+    remove_bad_files(training)
+    remove_bad_files(test)
 
 if __name__ == "__main__":
     main()

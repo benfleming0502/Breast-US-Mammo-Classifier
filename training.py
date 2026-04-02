@@ -1,4 +1,12 @@
+# Training script used for patched images
+# The training images are split into as many 224x224 blocks as possible, creating extra blackspace where edge is found
+# Then these blocks are ran through a resnet-18 feature extractor (No classifier head) to bring each down to a 7x7 block
+# Then these blocks are flattened and concatenated with the rest and run through the given transformer model.
+
 import torch
+import torchvision.models as models
+import torch.nn as nn
+import torchinfo
 
 def train_step(model, dataloader, loss_function, optimiser, device):
     model.train()
@@ -24,64 +32,34 @@ def train_step(model, dataloader, loss_function, optimiser, device):
     return total_loss / total_samples, total_correct / total_samples
 
 
-def test_step(model, dataloader, loss_function, device):
-    model.eval()
-    total_loss = 0
-    total_correct = 0
-    total_samples = 0
-
-    with torch.no_grad():
-        for X, y in dataloader:
-            X, y = X.to(device), y.to(device)
-
-            predictions = model(X)
-            loss = loss_function(predictions, y)
-
-            total_loss += loss.item() * X.size(0)
-            preds = predictions.argmax(dim=1)
-            total_correct += (preds == y).sum().item()
-            total_samples += X.size(0)
-
-    return total_loss / total_samples, total_correct / total_samples
-
-
-def train(model,
-          training_loader,
-          test_loader,
+def train(patch_model,
+          training_dataloader,
           optimiser,
           loss_function,
           epochs,
-          device):
+          device,
+          freeze_point=10):
 
-    model.to(device)
-
-    stats = {
-        "training_loss": [],
-        "training_accuracy": [],
-        "test_loss": [],
-        "test_accuracy": []
-    }
-
+    patch_model.to(device)
     for epoch in range(epochs):
-        training_loss, training_accuracy = train_step(
-            model, training_loader, loss_function, optimiser, device
-        )
+        if epoch == freeze_point:
+            try:
+                patch_model.unfreeze_backbone()
+            except:
+                print(f"Epoch {epoch}: Freeze backbone failed")
 
-        test_loss, test_accuracy = test_step(
-            model, test_loader, loss_function, device
-        )
+        patch_model.train()
+        for images, labels in training_dataloader:
+            images = images.to(device)
+            # labels = labels.to(device).float().unsqueeze(1)
+            labels = labels.to(device).long()
+            optimiser.zero_grad()
 
-        print(
-            f"Epoch: {epoch+1} | "
-            f"training_loss: {training_loss:.4f} | "
-            f"training_accuracy: {training_accuracy:.4f} | "
-            f"test_loss: {test_loss:.4f} | "
-            f"test_accuracy: {test_accuracy:.4f}"
-        )
+            outputs = patch_model(images)
+            # print(outputs, labels)
+            loss = loss_function(outputs, labels)
 
-        stats["training_loss"].append(training_loss)
-        stats["training_accuracy"].append(training_accuracy)
-        stats["test_loss"].append(test_loss)
-        stats["test_accuracy"].append(test_accuracy)
+            loss.backward()
+            optimiser.step()
 
-    return stats
+        print(f"Epoch {epoch}: {loss.item():.4f}")
