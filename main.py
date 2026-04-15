@@ -1,3 +1,4 @@
+import os
 import torch
 import torchvision
 
@@ -6,64 +7,30 @@ from torch import nn
 from torchvision import transforms
 from dataloading import get_dataloader
 from training import train
+from testing import test_model  # NEW
+from LossFunctions import FocalLoss
 
 import matplotlib.pyplot as plt
-import torchvision
 import CustomModels
 
+EPOCHS = 80
+LEARNING_RATE = 5e-5
 
-def show_batch(dataloader, class_names, device, title="Sample Batch"):
-    """
-    Displays images from the dataloader's first batch to visualize the model's input
-    """
-    model_device = device
-    images, labels = next(iter(dataloader))
-    images = images.cpu()
-    labels = labels.cpu()
-
-    grid = torchvision.utils.make_grid(images[:8], nrow=4, normalize=True)
-
-    plt.figure(figsize=(10, 6))
-    plt.imshow(grid.permute(1, 2, 0), cmap="gray")
-    plt.title(title)
-    plt.axis("off")
-
-    # Printing the class labels of each image
-    print("Labels:")
-    for i in range(min(8, len(labels))):
-        print(f"Image {i}: {class_names[labels[i]]}")
-
-    plt.show()
-
-
-def main():
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(torch.cuda.is_available())
-    print(f"Using {device} device")
-    print(f"{torch.version.cuda}")
-
-    patch_model = CustomModels.PatchTransformer()
-
-    # for parameter in vit_model.parameters():
-    #     parameter.requires_grad = False
-
-    classes = ["normal", "benign", "malignant"]
-
+def train_model(patch_model, checkpoint, optimiser, device, total_epochs=EPOCHS):
     seed = 80
     torch.manual_seed(seed)
     if device == "cuda":
         torch.cuda.manual_seed(seed)
 
-    patch_model = CustomModels.PatchTransformer()
-
-
     image_transforms = transforms.Compose([
+        transforms.Resize((2364, 2964)),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(20),
         transforms.ToTensor(),
-        transforms.Resize((2964, 2364)),
         transforms.Normalize(
             mean=(0.485, 0.456, 0.406),
             std=(0.229, 0.224, 0.225)
-        ) # Standard normalisation for use with ImageNet trained models
+        )
     ])
 
     training_images = "./training_mammograms"
@@ -73,25 +40,56 @@ def main():
         train_file=training_images,
         test_file=test_images,
         transform=image_transforms,
-        batch_size=8
+        batch_size=4
     )
 
-    #show_batch(training_loader, class_names, device, title="Training Samples")
-    #show_batch(test_loader, class_names, device, title="Test Samples")
+    os.makedirs("checkpoints", exist_ok=True)
 
-    optimiser = torch.optim.Adam(params=patch_model.parameters(), lr=0.001)
-    loss_function = torch.nn.CrossEntropyLoss()
+    loss_function = nn.BCEWithLogitsLoss(
+        pos_weight=torch.tensor([176 / 76]).to(device)
+    )
 
     vit_model_stats = train(
         patch_model=patch_model,
         training_dataloader=training_loader,
         optimiser=optimiser,
         loss_function=loss_function,
-        epochs=15,
+        epochs=total_epochs,
+        device=device,
+        checkpoint_dir="./checkpoints",
+        checkpoint=checkpoint,
+        class_names=class_names,
+        testing_dataloader=test_loader
+    )
+
+def main(to_load=None):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(torch.cuda.is_available())
+    print(f"Using {device} device")
+    print(f"{torch.version.cuda}")
+
+    classes = ["normal", "abnormal"]
+
+    patch_model = CustomModels.PatchTransformerResnet18().to(device)
+    optimiser = torch.optim.Adam(params=patch_model.parameters(), lr=LEARNING_RATE)
+    if to_load is None:
+        epoch = 0
+    else:
+        checkpoint = torch.load(to_load)
+        patch_model.load_state_dict(checkpoint['model_state_dict'])
+        optimiser.load_state_dict(checkpoint['optimizer_state_dict'])
+        epoch = checkpoint['epoch']
+
+    train_model(
+        patch_model=patch_model,
+        checkpoint=epoch,
+        optimiser=optimiser,
         device=device
     )
 
-    print(vit_model_stats)
+
+
+
 
 if __name__ == "__main__":
     main()

@@ -27,8 +27,8 @@ def get_dataloader(train_file, test_file, transform, batch_size):
                              shuffle=False, 
                              num_workers=8,
                              persistent_workers=True,
-                             prefetch_factor=2,
-                             pin_memory=True)
+                             prefetch_factor=2)#,
+                             #pin_memory=True)
     
     return training_loader, test_loader, class_names
 #

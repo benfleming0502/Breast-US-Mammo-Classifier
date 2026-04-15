@@ -28,11 +28,8 @@ def get_split(dataset_location,
               split_ratio, 
               training_location, 
               test_location,
-              progress_notice=True,
-              split_abnormal=False):
-    actual_class = output_class
-    if split_abnormal and (output_class != "normal"):
-        output_class = "abnormal"
+              progress_notice=True):
+
     training_output = training_location + output_class + "\\"
     test_output = test_location + output_class + "\\"
     images = {}
@@ -62,7 +59,7 @@ def get_split(dataset_location,
             if not ls is None:
                 shutil.copyfile(image,
                            training_output
-                           + actual_class
+                           + output_class
                            + "_"
                            + patient_ID
                            + "_"
@@ -82,15 +79,13 @@ def get_split(dataset_location,
             if not ls is None:
                 shutil.copyfile(image,
                            test_output
-                           + output_class
-                           + "_"
                            + patient_ID
                            + "_"
                            + ls)
     print(f"Finished copying {i}/{test_size} samples")
             
 
-def reset_workspace(test, training, set_abnormal=False):
+def reset_workspace(test, training):
 
     if os.path.isdir(test):
         print("Deleting previous test data")
@@ -99,30 +94,19 @@ def reset_workspace(test, training, set_abnormal=False):
         print("Deleting previous training data")
         shutil.rmtree(training)
 
+    test_benign = test + "benign"
+    test_malignant = test + "malignant"
     test_normal = test + "normal"
+    training_benign = training + "benign"
+    training_malignant = training + "malignant"
     training_normal = training + "normal"
+
+    os.makedirs(test_benign)
+    os.makedirs(test_malignant)
     os.makedirs(test_normal)
+    os.makedirs(training_benign)
+    os.makedirs(training_malignant)
     os.makedirs(training_normal)
-
-    if not set_abnormal:
-        test_benign = test + "benign"
-        test_malignant = test + "malignant"
-        training_benign = training + "benign"
-        training_malignant = training + "malignant"
-
-
-        os.makedirs(test_benign)
-        os.makedirs(test_malignant)
-
-        os.makedirs(training_benign)
-        os.makedirs(training_malignant)
-    else:
-        test_abnormal = test + "abnormal"
-        training_abnormal = training + "abnormal"
-
-        os.makedirs(test_abnormal)
-        os.makedirs(training_abnormal)
-
 
 def main(reset=True,train_split=0.7):
     wrk_dir = os.getcwd()
@@ -131,11 +115,11 @@ def main(reset=True,train_split=0.7):
     dataset = wrk_dir + "\\Spectra_Mammos\\"
 
     if reset:
-        reset_workspace(test, training, set_abnormal=True)
+        reset_workspace(test, training)
 
-    get_split(dataset, "Benign", "benign", train_split, training, test, split_abnormal=True)
-    get_split(dataset, "Malignant", "malignant", train_split, training, test, split_abnormal=True)
-    get_split(dataset, "Normal", "normal", train_split, training, test, split_abnormal=True)
+    get_split(dataset, "Benign", "benign", train_split, training, test)
+    get_split(dataset, "Malignant", "malignant", train_split, training, test)
+    get_split(dataset, "Normal", "normal", train_split, training, test)
 
     remove_bad_files(training)
     remove_bad_files(test)

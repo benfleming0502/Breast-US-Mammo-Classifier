@@ -4,6 +4,9 @@
 # Then these blocks are flattened and concatenated with the rest and run through the given transformer model.
 
 import torch
+from sympy.stats.rv import probability
+
+from testing import test_model
 import torchvision.models as models
 import torch.nn as nn
 import torchinfo
@@ -38,28 +41,82 @@ def train(patch_model,
           loss_function,
           epochs,
           device,
-          freeze_point=10):
-
+          freeze_point=4,
+          checkpoint_dir=None,
+          testing_dataloader=None,
+          class_names = None,
+          checkpoint=0,
+          checkpoint_freq=1,
+          test_freq=1):
+    acc_cons = []
+    best_acc = 0
+    best_acc_i = 0
     patch_model.to(device)
-    for epoch in range(epochs):
-        if epoch == freeze_point:
-            try:
-                patch_model.unfreeze_backbone()
-            except:
-                print(f"Epoch {epoch}: Freeze backbone failed")
-
+    for epoch in range(checkpoint, epochs):
+        i = 0
         patch_model.train()
+        if epoch == freeze_point:
+            patch_model.unfreeze_backbone()
+        total_loss = 0
+        total_correct = 0
         for images, labels in training_dataloader:
+            i += 1
             images = images.to(device)
-            # labels = labels.to(device).float().unsqueeze(1)
-            labels = labels.to(device).long()
-            optimiser.zero_grad()
+            labels = labels.to(device).float().view(-1, 1)
 
             outputs = patch_model(images)
-            # print(outputs, labels)
+
+            preds = (torch.sigmoid(outputs) > 0.5).float()
+            correct = (preds == labels).sum()
+            total_correct += correct
+
             loss = loss_function(outputs, labels)
 
+            optimiser.zero_grad()
             loss.backward()
             optimiser.step()
+            if i == -1: # Change to number ~ 0-150 for a random sample of a batch's prediction
+                probs = torch.sigmoid(outputs[:10])
+                preds = (probs > 0.5).float()
 
-        print(f"Epoch {epoch}: {loss.item():.4f}")
+                print("probs:", probs)
+                print("preds:", preds)
+                print("labels:", labels[:10])
+                print("loss:", loss.item())
+            total_loss += loss.item()
+        training_accuracy = total_correct / (i+1)
+        end_loss_avg = total_loss / (i + 1)
+        print(f"Epoch {epoch + 1}/{epochs}, Loss: {end_loss_avg:.4f}")
+        print(f"Training Accuracy: {training_accuracy:.4f}")
+
+        # ✅ Save checkpoint every 2 epochs
+        if checkpoint_dir and (epoch + 1) % checkpoint_freq == 0:
+            checkpoint_path = f"{checkpoint_dir}/checkpoint_epoch_{epoch + 1}.pth"
+            torch.save({
+                'epoch': epoch + 1,
+                'model_state_dict': patch_model.state_dict(),
+                'optimizer_state_dict': optimiser.state_dict(),
+                'loss': end_loss_avg,
+                'training_accuracy': training_accuracy
+            }, checkpoint_path)
+
+            print(f"Checkpoint saved: {checkpoint_path}")
+        if (not (testing_dataloader is None or class_names is None)) and (epoch + 1) % test_freq == 0:
+            print(f"Testing Model at epoch {epoch + 1}:\n")
+            current_acc, current_con = test_model(patch_model, testing_dataloader, device, class_names)
+            acc_cons.append([current_acc, current_con])
+            if current_acc > best_acc:
+                best_acc = current_acc
+                best_acc_i = epoch // test_freq
+    print(f"Best epoch was: {best_acc_i + 1}")
+    print(f"With accuracy: {acc_cons[best_acc_i][0]}")
+    print(f"Confusion matrices:\n{acc_cons[best_acc_i][1]}")
+    checkpoint_path = f"{checkpoint_dir}/final_model.pth"
+    torch.save({
+        'epoch': epochs,
+        'model_state_dict': patch_model.state_dict(),
+        'optimizer_state_dict': optimiser.state_dict(),
+        'loss': loss.item()
+    }, checkpoint_path)
+
+    print("Final model saved.")

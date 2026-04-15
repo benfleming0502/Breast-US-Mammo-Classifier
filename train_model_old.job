@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+#SBATCH --job-name=train_model
+#SBATCH --partition=gpu
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=16G
+#SBATCH --time=0-4:00:00
+#SBATCH --account=CS-ANIMALNN-2020
+#SBATCH --output=%x-%j.log
+#SBATCH --error=%x-%j.err
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=vpc511@york.ac.uk
+
+set -e
+module purge
+module load Python/3.12.3-GCCcore-13.3.0
+
+cd scratch/Abnormal-Tests
+source torch-venv/bin/activate
+
+nvidia-smi
+
+python main.py
