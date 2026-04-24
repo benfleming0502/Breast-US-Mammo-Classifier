@@ -31,22 +31,17 @@ def get_dataloader(train_file, test_file, transform, batch_size):
                              #pin_memory=True)
     
     return training_loader, test_loader, class_names
-#
-# image_transforms = transforms.Compose([
-#     transforms.ToTensor(),
-#     transforms.Resize((2364, 2964)),
-#     transforms.Normalize(
-#         mean=(0.485, 0.456, 0.406),
-#         std=(0.229, 0.224, 0.225)
-#     ) # Standard normalisation for use with ImageNet trained models
-# ])
-#
-# training_images = "./training_mammograms"
-# test_images = "./test_mammograms"
-#
-# training_loader, test_loader, class_names = get_dataloader(
-#     train_file=training_images,
-#     test_file=test_images,
-#     transform=image_transforms,
-#     batch_size=16
-# )
+
+def get_test_dataloader(test_file, transform, batch_size):
+    test_data = datasets.ImageFolder(test_file, transform=transform)
+    class_names = test_data.classes
+
+    test_loader = DataLoader(test_data,
+                             batch_size=batch_size,
+                             shuffle=False,
+                             num_workers=8,
+                             persistent_workers=True,
+                             prefetch_factor=2)  # ,
+    # pin_memory=True)
+
+    return test_loader, class_names

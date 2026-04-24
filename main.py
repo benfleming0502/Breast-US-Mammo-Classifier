@@ -12,11 +12,12 @@ from LossFunctions import FocalLoss
 
 import matplotlib.pyplot as plt
 import CustomModels
+import CustomTransforms
 
 EPOCHS = 80
-LEARNING_RATE = 5e-5
+LEARNING_RATE = 5e-6
 
-def train_model(patch_model, checkpoint, optimiser, device, total_epochs=EPOCHS):
+def train_model(patch_model, checkpoint, optimiser, device, total_epochs=EPOCHS, checkpoints_dir="./checkpoints", test_frequency=1, batch_size=4):
     seed = 80
     torch.manual_seed(seed)
     if device == "cuda":
@@ -27,6 +28,7 @@ def train_model(patch_model, checkpoint, optimiser, device, total_epochs=EPOCHS)
         transforms.RandomHorizontalFlip(),
         transforms.RandomRotation(20),
         transforms.ToTensor(),
+        CustomTransforms.CLAHETransform(),
         transforms.Normalize(
             mean=(0.485, 0.456, 0.406),
             std=(0.229, 0.224, 0.225)
@@ -37,13 +39,13 @@ def train_model(patch_model, checkpoint, optimiser, device, total_epochs=EPOCHS)
     test_images = "./test_mammograms"
 
     training_loader, test_loader, class_names = get_dataloader(
-        train_file=training_images,
+        train_file=test_images,
         test_file=test_images,
         transform=image_transforms,
-        batch_size=4
+        batch_size=batch_size
     )
 
-    os.makedirs("checkpoints", exist_ok=True)
+    os.makedirs(checkpoints_dir, exist_ok=True)
 
     loss_function = nn.BCEWithLogitsLoss(
         pos_weight=torch.tensor([176 / 76]).to(device)
@@ -56,10 +58,11 @@ def train_model(patch_model, checkpoint, optimiser, device, total_epochs=EPOCHS)
         loss_function=loss_function,
         epochs=total_epochs,
         device=device,
-        checkpoint_dir="./checkpoints",
+        checkpoint_dir=f"./{checkpoints_dir}",
         checkpoint=checkpoint,
         class_names=class_names,
-        testing_dataloader=test_loader
+        testing_dataloader=test_loader,
+        test_freq=test_frequency
     )
 
 def main(to_load=None):

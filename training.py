@@ -48,6 +48,7 @@ def train(patch_model,
           checkpoint=0,
           checkpoint_freq=1,
           test_freq=1):
+    batch_size = training_dataloader.batch_size
     acc_cons = []
     best_acc = 0
     best_acc_i = 0
@@ -85,7 +86,7 @@ def train(patch_model,
                 print("loss:", loss.item())
             total_loss += loss.item()
         training_accuracy = total_correct / (i+1)
-        end_loss_avg = total_loss / (i + 1)
+        end_loss_avg = total_loss / ((i + 1) * batch_size)
         print(f"Epoch {epoch + 1}/{epochs}, Loss: {end_loss_avg:.4f}")
         print(f"Training Accuracy: {training_accuracy:.4f}")
 
@@ -101,16 +102,18 @@ def train(patch_model,
             }, checkpoint_path)
 
             print(f"Checkpoint saved: {checkpoint_path}")
-        if (not (testing_dataloader is None or class_names is None)) and (epoch + 1) % test_freq == 0:
+        if (not (testing_dataloader is None or class_names is None)) and test_freq != 0 and (epoch + 1) % test_freq == 0:
             print(f"Testing Model at epoch {epoch + 1}:\n")
-            current_acc, current_con = test_model(patch_model, testing_dataloader, device, class_names)
-            acc_cons.append([current_acc, current_con])
+            cuurent_stats = test_model(patch_model, testing_dataloader, device, class_names)
+            current_acc = cuurent_stats[0][-1]
+            acc_cons.append([current_acc, cuurent_stats])
             if current_acc > best_acc:
                 best_acc = current_acc
                 best_acc_i = epoch // test_freq
-    print(f"Best epoch was: {best_acc_i + 1}")
-    print(f"With accuracy: {acc_cons[best_acc_i][0]}")
-    print(f"Confusion matrices:\n{acc_cons[best_acc_i][1]}")
+    if test_freq != 0:
+        print(f"Best epoch was: {best_acc_i + 1}")
+        print(f"With accuracy: {acc_cons[best_acc_i][0]}")
+        print(f"Stats:\n{acc_cons[best_acc_i][1]}")
     checkpoint_path = f"{checkpoint_dir}/final_model.pth"
     torch.save({
         'epoch': epochs,
