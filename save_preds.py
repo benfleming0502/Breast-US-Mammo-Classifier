@@ -11,25 +11,28 @@ from CustomModels import *
 from torchvision import models
 import testing
 import pandas as pd
+import CustomTransforms
 
 
 def main():
     save_path = "./"
-    best_t18 = "./patch18-checkpoints/checkpoint_epoch_41.pth"
-    best_r18 = "./resnet18-checkpoints/checkpoint_epoch_27.pth"
-    best_t50 = "./patch50-checkpoints/checkpoint_epoch_67.pth"
-    best_r50 = "./resnet50-checkpoints/checkpoint_epoch_46.pth"
+    best_t18 = "./patch18-checkpoints-lowres/checkpoint_epoch_53.pth"
+    best_r18 = "./resnet18-checkpoints-lowres/checkpoint_epoch_41.pth"
+    best_t50 = "./patch50-checkpoints-lowres/checkpoint_epoch_64.pth"
+    best_r50 = "./resnet50-checkpoints-lowres/checkpoint_epoch_80.pth"
 
     test_images_dir = "./test_mammograms"
 
     image_transforms = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Resize((2364, 2964)),
-        transforms.Normalize(
-            mean=(0.485, 0.456, 0.406),
-            std=(0.229, 0.224, 0.225)
-        )
-    ])
+            transforms.Resize((591, 741)),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(20),
+            transforms.ToTensor(),
+            transforms.Normalize(
+                mean=(0.485, 0.456, 0.406),
+                std=(0.229, 0.224, 0.225)
+            )
+        ])
 
     test_loader, class_names = get_test_dataloader(
             test_file=test_images_dir,
@@ -40,9 +43,6 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model_t18 = PatchTransformerResnet18()
-    model_r18 = PatchResnet18()
-    model_t50 = PatchTransformerResnet50()
-    model_r50 = PatchResnet50()
 
     optimiser = torch.optim.Adam(model_t18.parameters())
     checkpoint = torch.load(best_t18)
@@ -52,6 +52,12 @@ def main():
 
     probs_t18, preds_t18, labels = testing.get_predictions(model_t18, test_loader, device, class_names=class_names)
 
+    del model_t18
+    del optimiser
+    torch.cuda.empty_cache()
+
+    model_r18 = PatchResnet18()
+
     optimiser = torch.optim.Adam(model_r18.parameters())
     checkpoint = torch.load(best_r18)
     model_r18.load_state_dict(checkpoint['model_state_dict'])
@@ -59,6 +65,12 @@ def main():
     model_r18.to(device)
 
     probs_r18, preds_r18, labels = testing.get_predictions(model_r18, test_loader, device, class_names=class_names)
+
+    del model_r18
+    del optimiser
+    torch.cuda.empty_cache()
+
+    model_t50 = PatchTransformerResnet50()
 
     optimiser = torch.optim.Adam(model_t50.parameters())
     checkpoint = torch.load(best_t50)
@@ -68,6 +80,12 @@ def main():
 
     probs_t50, preds_t50, labels = testing.get_predictions(model_t50, test_loader, device, class_names=class_names)
 
+    del model_t50
+    del optimiser
+    torch.cuda.empty_cache()
+
+    model_r50 = PatchResnet50()
+
     optimiser = torch.optim.Adam(model_r50.parameters())
     checkpoint = torch.load(best_r50)
     model_r50.load_state_dict(checkpoint['model_state_dict'])
@@ -75,6 +93,10 @@ def main():
     model_r50.to(device)
 
     probs_r50, preds_r50, labels = testing.get_predictions(model_r50, test_loader, device, class_names=class_names)
+
+    del model_r50
+    del optimiser
+    torch.cuda.empty_cache()
 
     # Make all into one csv file with labels and the probabilities and predictions for each model
     print("Shapes:")
@@ -113,7 +135,7 @@ def main():
         "r50_prob": probs_r50
     })
 
-    csv_path = os.path.join(save_path, "model_predictions.csv")
+    csv_path = os.path.join(save_path, "model_predictions_lowres.csv")
     df.to_csv(csv_path, index=False)
 
 

@@ -6,8 +6,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --exclusive
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=32G
-#SBATCH --time=1-0:00:00
+#SBATCH --mem=8G
+#SBATCH --time=0-8:00:00
 #SBATCH --account=CS-ANIMALNN-2020
 #SBATCH --output=%x-%j.log
 #SBATCH --error=%x-%j.err

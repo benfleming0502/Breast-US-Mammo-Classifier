@@ -17,23 +17,22 @@ import CustomTransforms
 EPOCHS = 80
 LEARNING_RATE = 5e-6
 
-def train_model(patch_model, checkpoint, optimiser, device, total_epochs=EPOCHS, checkpoints_dir="./checkpoints", test_frequency=1, batch_size=4):
+def train_model(patch_model, checkpoint, optimiser, device, total_epochs=EPOCHS, checkpoints_dir="./checkpoints", test_frequency=1, batch_size=4, image_transforms=None):
     seed = 80
     torch.manual_seed(seed)
     if device == "cuda":
         torch.cuda.manual_seed(seed)
-
-    image_transforms = transforms.Compose([
-        transforms.Resize((2364, 2964)),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(20),
-        transforms.ToTensor(),
-        CustomTransforms.CLAHETransform(),
-        transforms.Normalize(
-            mean=(0.485, 0.456, 0.406),
-            std=(0.229, 0.224, 0.225)
-        )
-    ])
+    if image_transforms is None:
+        image_transforms = transforms.Compose([
+            transforms.Resize((2364, 2964)),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(20),
+            transforms.ToTensor(),
+            transforms.Normalize(
+                mean=(0.485, 0.456, 0.406),
+                std=(0.229, 0.224, 0.225)
+            )
+        ])
 
     training_images = "./training_mammograms"
     test_images = "./test_mammograms"

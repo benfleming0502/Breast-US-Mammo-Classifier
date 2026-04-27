@@ -23,15 +23,16 @@ def test_checkpoint(model, test_loader, checkpoint_dir, device, class_names):
 
     return accuracy, confusion_matrix
 
-def test_models_checkpoints(model, test_images_dir, checkpoints_dir, device, model_name):
-    image_transforms = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Resize((2364, 2964)),
-        transforms.Normalize(
-            mean=(0.485, 0.456, 0.406),
-            std=(0.229, 0.224, 0.225)
-        )
-    ])
+def test_models_checkpoints(model, test_images_dir, checkpoints_dir, device, model_name, image_transforms=None):
+    if image_transforms is None:
+        image_transforms = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Resize((2364, 2964)),
+            transforms.Normalize(
+                mean=(0.485, 0.456, 0.406),
+                std=(0.229, 0.224, 0.225)
+            )
+        ])
 
     test_loader, class_names = get_test_dataloader(
             test_file=test_images_dir,
@@ -66,12 +67,12 @@ def test_models_checkpoints(model, test_images_dir, checkpoints_dir, device, mod
 
 
 def main():
-    model = PatchTransformerResnet18()
+    model = PatchTransformerResnet50()
 
     test_dir = "./test_mammograms"
-    checkpoint_dir = "./patch18-preproc-checkpoints"
+    checkpoint_dir = "./patch50-preproc-checkpoints"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    test_models_checkpoints(model, test_dir, checkpoint_dir, device, "patch-18-preproc")
+    test_models_checkpoints(model, test_dir, checkpoint_dir, device, "patch-50-preproc")
 
 if __name__ == "__main__":
     main()
